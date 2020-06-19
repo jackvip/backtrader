@@ -1464,7 +1464,7 @@ if __name__ == &#39;__main__&#39;:
 <p>总结  </p>
 <p>上面的教程，我们从一个头开始，一步步搭建了一个能运行的回测系统，并且具备绘制结果和优化参数功能。<br>除此之外，还能做一些提高胜率的事情：<br>自定义指标：创建自定义指标很容易，绘制它们同样简单；<br>下单数量：资金管理是交易成功的关键之一；<br>委托单类型（限价单、止损单、限价止损单）等等。  </p>
 <p>阅读后续章节，获取相关功能的介绍。<br>运气很重要，祝好运～</p>
-<h1 id="-">相关概念</h1>
+<h1 id="-">一些概念</h1>
 <p>这是backtrader一些概念的集合。了解这些概念对，对于使用平台很有帮助。  </p>
 <h2 id="-">开始之前</h2>
 <p>所有的代码示例，需要导入以下库才能使用：  </p>
@@ -1616,6 +1616,77 @@ close和sma通过访问(索引0)来比较值的大小</li>
 <p>注意：
 不支持使用后面的两种标记方式来给lines赋值</p>
 </blockquote>
+<h3 id="lines-">Lines（线群）声明</h3>
+<p>如果开发一个指标，则该指标所拥有的Lines必须要声明。<br>就像params一样，但是只能作为元组类型的成员属性，不支持字典，因为Lines不按照插入顺序存储内容。 
+对于简单移动平均线，可以这样进行声明：</p>
+<pre><code class="lang-python">class SimpleMovingAverage(Indicator):
+    lines = (&#39;sma&#39;,)
+
+    ...
+</code></pre>
+<blockquote>
+<p>注意：<br>如果您将单个字符串传递给元组，则在元组中声明后的添加逗号。否则，字符串中的每个字母都将被解释为要添加到元组的项。 这可能是Python语法中少数不合理的几个地方之一。</p>
+</blockquote>
+<p>如上例所示，该声明在指标中创建了一条sma线，以后可以在该策略进行访问（并可能传递给其他指标来创建更复杂的指标）。  </p>
+<p>对于开发而言，通过非命名的方式访问lines会很有用，这也是使用数字索引访问的方便之处：</p>
+<ul>
+<li>self.lines[0] 指向 self.lines.sma</li>
+</ul>
+<p>如果定义了更多的线，可以将使用索引1、2或者更高的索引进行访问。<br>当然，也确实存在快捷访问版本：</p>
+<ul>
+<li>self.line 指向 to self.lines[0]</li>
+<li>self.lineX 指向 self.lines[X]</li>
+<li>self.line_X 指向 self.lines[X]</li>
+</ul>
+<p>交易数据对象也可以通过数字快速访问对象内部的lines：</p>
+<ul>
+<li>self.dataY 指向 self.data.lines[Y]</li>
+<li>self.dataX_Y 指向 self.dataX.lines[X] 这是 self.datas[X].lines[Y] 的缩写版本。</li>
+</ul>
+<h3 id="-lines-">访问交易数据中的lines（线群）</h3>
+<p>在交易数据内部，也可以省略的方式来访问lines，比如可以用比较自然的方式访问收盘价：  </p>
+<pre><code class="lang-python">data = btfeeds.BacktraderCSVData(dataname=&#39;mydata.csv&#39;)
+...
+class MyStrategy(bt.Strategy):
+    ...
+    def next(self):
+        if self.data.close[0] &gt; 30.0:
+            ...
+</code></pre>
+<p>这种方式肯定比 self.data.lines.close[0] &gt; 30.0: 更加自然些。<br>但是这不适用于以下指标：</p>
+<ul>
+<li>指标只具有一个属性close，该属性包含一个中间计算，该中间计算随后的结果赋值给lines中的close
+对于交易数据，不会进行任何计算，因为它只是一个数据源。</li>
+</ul>
+<h3 id="-">线的长度</h3>
+<p>Lines是一组点的集合，并且在执行过程中会动态增长，因此可以通过调用Python中的len函数随时测量长度。
+这适用于：</p>
+<ul>
+<li>交易数据</li>
+<li>策略</li>
+<li>指标</li>
+</ul>
+<p>交易数据预加载后，data属性也可使用buflen方法，返回交易数据的柱线数。  </p>
+<p>len和buflen之间的区别：  </p>
+<ul>
+<li>len报告已处理了多少条</li>
+<li>buflen报告已为交易数据加载的柱线总数</li>
+</ul>
+<p>如果两个都返回相同的值，则要么没有数据被预加载，要么当前处理已消耗了所有预加载的数据（除非系统连接到实时交易数据，否则将意味着处理结束）。</p>
+<h3 id="-">线和参数的继承</h3>
+<p>框架提供了一种元语言来支持参数和线的声明。我们尽量使其与Python的继承规则兼容。  </p>
+<p>参数继承  </p>
+<ul>
+<li>支持多重继承</li>
+<li>基类的参数被继承</li>
+<li>如果多个基类定义相同的参数，则使用继承列表中最后一个类的默认值</li>
+<li>如果在子类中重新定义了相同的参数，则新的默认值将覆盖基类的默认值。</li>
+</ul>
+<p>Lines继承</p>
+<ul>
+<li>支持多重继承</li>
+<li>所有基类的Lines均被继承。被命名为Lines的情况下，如果在基类中多次使用相同的名称，则Lines中只有一个该名称的属性。</li>
+</ul>
 
           	</article>
         </div>
