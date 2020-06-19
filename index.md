@@ -1621,11 +1621,11 @@ cerebro.adddata(data)
 cerebro.addstrategy(MyStrategy, period=30)
 ...
 ```
-请注意以下几点：
+请注意以下几点：  
 策略的构造方法__init__中并未接收到* args或** kwargs任何参数（但是它们仍可以使用），  
 成员变量self.datas，该成员变量为数组/列表/可迭代，至少要要有一条记录（否则将引发异常）。  
-就是这样，交易数据已添加到框架中，并且将按照添加到系统中的顺序显示在策略中。
-
+就是这样，交易数据已添加到框架中，并且将按照添加到系统中的顺序显示在策略中。  
+  
 >注意：  
 >这种方式，同样适用于框架源码中的现有指标，或者用户开发的自定义指标。  
    
@@ -1657,7 +1657,7 @@ self.data已从SimpleMovingAverage的调用中完全删除，SimpleMovingAverage
   
 ### 一切皆是数据源
 不仅仅交易数据是数据源，可以传递给测策略， 指标和操作结果同样也是数据源。  
-  
+    
 在前面的示例中，SimpleMovingAverage接收self.datas[0]作为要进行操作的输入。下面看一个操作结果和额外指标的示例：  
 ```python
 class MyStrategy(bt.Strategy):
@@ -1683,4 +1683,69 @@ class MyStrategy(bt.Strategy):
         sma3 = btind.SimpleMovingAverage(greater, period=self.p.period4)
     ...
 ```
-基本上，所有内容都会转换为一个对象，一旦对其进行操作，就可以用作数据源。
+基本上，所有内容都会转换为一个对象，一旦对其进行操作，就可以用作数据源。  
+
+## 参数
+通常，平台中的所有其他类都支持参数的概念。  
+参数和默认值一起声明为类的属性（元组或类似字典的对象）。  
+扫描关键字args（** kwargs）以查找匹配的参数，如果找到则将它们从** kwargs中删除，并将值分配给相应的参数。  
+通过访问成员变量self.params（简写为self.p），最终可以在类的实例中使用参数。  
+先前的简洁策略已经包含一个参数示例，这里我们再次聚焦参数的使用。  
+  
+通过元组方式：  
+```python
+class MyStrategy(bt.Strategy):
+    params = (('period', 20),)
+
+    def __init__(self):
+        sma = btind.SimpleMovingAverage(self.data, period=self.p.period)
+```
+通过字典方式：
+```python
+class MyStrategy(bt.Strategy):
+    params = dict(period=20)
+
+    def __init__(self):
+        sma = btind.SimpleMovingAverage(self.data, period=self.p.period)
+```
+
+## Lines（线群）
+同样，平台中几乎所有对象都是使用了Lines（线群）对象。 从用户的角度来看，这意味着：
+* Lines（线群）对象可以容纳一个或多个线，线是由一组数据组成的数组，这组值在图表中放在一起就可以形成一条线。
+线的一个很好的例子是由股票的收盘价形成的线，这实际上就是我们众所周知的收盘价曲线。  
+  
+框架中对线的使用通常就是读取操作， 前面的小例子少加改造如下：
+```python
+class MyStrategy(bt.Strategy):
+    params = dict(period=20)
+
+    def __init__(self):
+
+        self.movav = btind.SimpleMovingAverage(self.data, period=self.p.period)
+
+    def next(self):
+        if self.movav.lines.sma[0] > self.data.lines.close[0]:
+            print('移动平均线大于收盘价')
+```
+展现了拥有线的两个对象：
+* self.data具有一个lines属性，该属性包含一个close属性
+* self.movav是一个SimpleMovingAverage指标，也具有一个lines属性，该属性包含一个sma属性
+close和sma通过访问(索引0)来比较值的大小
+
+>注意：
+>由此可见，线只是一个名字而已。可以按照声明时的顺序访问它，但这仅适用于指标开发的过程中。
+
+也可以通过快捷方式访问线：
+* xxx.lines可以缩短为xxx.l
+* xxx.lines.name可以缩写为xxx.lines_name
+* 诸如策略和指标之类的复杂对象可以快速访问线数据
+* + self.data_name是对self.data.lines.name的直接访问
+* + 同样适用于编号的data变量：self.data1_name -> self.data1.lines.name
+
+此外，也可以通过以下方式直接访问线的属性：
+* self.data.close 
+* self.movav.sma
+但是，实际开发中，这种快捷访问的含义不如之前的清晰。
+
+>注意：
+>不支持使用后面的两种标记方式来给lines赋值
