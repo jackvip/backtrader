@@ -2005,10 +2005,10 @@ Cerebro是backtrader的心核心，策略是用户的核心。
 >注意：  
 >一个策略可能在出生时被来自backtrader.errors模块中的StrategySkipError异常所中断，这样可以避免在回测期间继续执行该策略，详情请参阅《异常》部分章节。
 
-1. 初始化：__init__  
+1. 初始化：\_\_init\_\_
 这是在实例初始化期间调用的：指示和其他所需的属性将在此处创建。例如： 
 ```python 
-def __init __（）：  
+def __init__（）：  
     self.sma = btind.SimpleMovingAverage（period = 15）
 ```
 
@@ -2051,12 +2051,14 @@ class MyStrategy(bt.Strategy):
 * prenext和nexstart不会被覆盖
 * 在next方法中，将指标的值与收盘价进行比较以执行某项操作
 * 默认的空stop方法不会被覆盖
-策略就像现实世界中的交易者一样，当有事件发生时会得到通知。 实际上，回测过程中的每个周期next方法被调用一次。 该策略将执行以下动作：
+
+策略就像现实世界中的交易者一样，当有事件发生时会得到通知。实际上，回测过程中的每个周期next方法被调用一次。该策略将执行以下动作：
 * 通过notify_order（order）通知订单中的任何状态更改
 * 通过notify_trade（trade）通知任何开仓/更新/平仓交易
 * 通过notify_cashvalue（cash, value）通知经纪人当前的现金和投资组合
 * 通过notify_fund（cash, value, fundvalue, shares）通知经纪人当前的现金和投资组合以及基金价值和股票的交易
 * 通过notify_store（msg，* args，** kwargs）实现特定的事件
+
 请参阅Cerebro对有关store通知的说明，即使store通知传递给了Cerebro，也一样会传递给策略（使用重写的notify_store方法或通过回调的方式）。  
 
 策略也希望交易者扑捉到市场中的机会，并在next方法中，通过以下操作来获利：

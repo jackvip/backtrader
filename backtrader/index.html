@@ -1848,8 +1848,9 @@ class MyStrategy(bt.Strategy):
 <p>注意：<br>一个策略可能在出生时被来自backtrader.errors模块中的StrategySkipError异常所中断，这样可以避免在回测期间继续执行该策略，详情请参阅《异常》部分章节。</p>
 </blockquote>
 <ol>
-<li><p>初始化：<strong>init</strong><br>这是在实例初始化期间调用的：指示和其他所需的属性将在此处创建。例如： </p>
-<pre><code class="lang-python">def __init __（）：  
+<li><p>初始化：__init__
+这是在实例初始化期间调用的：指示和其他所需的属性将在此处创建。例如： </p>
+<pre><code class="lang-python">def __init__（）：  
  self.sma = btind.SimpleMovingAverage（period = 15）
 </code></pre>
 </li>
@@ -1886,15 +1887,17 @@ cerebro通知strategy开始运行，默认值是一个空方法。</p>
 <li>默认的空start方法不会被覆盖</li>
 <li>prenext和nexstart不会被覆盖</li>
 <li>在next方法中，将指标的值与收盘价进行比较以执行某项操作</li>
-<li>默认的空stop方法不会被覆盖
-策略就像现实世界中的交易者一样，当有事件发生时会得到通知。 实际上，回测过程中的每个周期next方法被调用一次。 该策略将执行以下动作：</li>
+<li>默认的空stop方法不会被覆盖</li>
+</ul>
+<p>策略就像现实世界中的交易者一样，当有事件发生时会得到通知。实际上，回测过程中的每个周期next方法被调用一次。该策略将执行以下动作：</p>
+<ul>
 <li>通过notify_order（order）通知订单中的任何状态更改</li>
 <li>通过notify_trade（trade）通知任何开仓/更新/平仓交易</li>
 <li>通过notify_cashvalue（cash, value）通知经纪人当前的现金和投资组合</li>
 <li>通过notify_fund（cash, value, fundvalue, shares）通知经纪人当前的现金和投资组合以及基金价值和股票的交易</li>
-<li>通过notify_store（msg，<em> args，*</em> kwargs）实现特定的事件
-请参阅Cerebro对有关store通知的说明，即使store通知传递给了Cerebro，也一样会传递给策略（使用重写的notify_store方法或通过回调的方式）。  </li>
+<li>通过notify_store（msg，<em> args，*</em> kwargs）实现特定的事件</li>
 </ul>
+<p>请参阅Cerebro对有关store通知的说明，即使store通知传递给了Cerebro，也一样会传递给策略（使用重写的notify_store方法或通过回调的方式）。  </p>
 <p>策略也希望交易者扑捉到市场中的机会，并在next方法中，通过以下操作来获利：</p>
 <ul>
 <li>buy方法可以做多或减少/关闭空头头寸</li>
