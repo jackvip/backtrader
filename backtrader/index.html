@@ -66,9 +66,7 @@
         <div id='readme' style='width:70%;margin-left:20%;'>
           	<article class='markdown-body'>
             	<h1 id="-">声明</h1>
-<p>本文档是基于backtrader官方文档的翻译
-官方文档地址 <a href="https://www.backtrader.com/docu/">https://www.backtrader.com/docu/</a>
-文档回测数据文件 <a href="https://github.com/jackvip/backtrader/blob/master/orcl-1995-2014.txt">https://github.com/jackvip/backtrader/blob/master/orcl-1995-2014.txt</a></p>
+<p>本文档是基于backtrader官方文档的翻译<br>官方文档地址 <a href="https://www.backtrader.com/docu/">https://www.backtrader.com/docu/</a><br>文档回测数据文件 <a href="https://github.com/jackvip/backtrader/blob/master/orcl-1995-2014.txt">https://github.com/jackvip/backtrader/blob/master/orcl-1995-2014.txt</a></p>
 <h1 id="-">介绍</h1>
 <h2 id="backtrader-2-">backtrader的2个目标</h2>
 <ol>
@@ -1883,7 +1881,7 @@ cerebro通知strategy开始运行，默认值是一个空方法。</p>
 </code></pre>
 <p>在此代码段中：</p>
 <ul>
-<li>在<strong>init</strong>期间，为属性分配了一个指标</li>
+<li>在__init__期间，为属性分配了一个指标</li>
 <li>默认的空start方法不会被覆盖</li>
 <li>prenext和nexstart不会被覆盖</li>
 <li>在next方法中，将指标的值与收盘价进行比较以执行某项操作</li>

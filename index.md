@@ -1,7 +1,7 @@
 # 声明
 
-本文档是基于backtrader官方文档的翻译
-官方文档地址 https://www.backtrader.com/docu/
+本文档是基于backtrader官方文档的翻译  
+官方文档地址 https://www.backtrader.com/docu/  
 文档回测数据文件 https://github.com/jackvip/backtrader/blob/master/orcl-1995-2014.txt
 
 # 介绍
@@ -2046,7 +2046,7 @@ class MyStrategy(bt.Strategy):
             pass
 ```
 在此代码段中：
-* 在__init__期间，为属性分配了一个指标
+* 在\_\_init\_\_期间，为属性分配了一个指标
 * 默认的空start方法不会被覆盖
 * prenext和nexstart不会被覆盖
 * 在next方法中，将指标的值与收盘价进行比较以执行某项操作
