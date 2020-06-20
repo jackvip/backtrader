@@ -1821,3 +1821,43 @@ len和buflen之间的区别：
 Lines继承
 * 支持多重继承
 * 所有基类的Lines均被继承。被命名为Lines的情况下，如果在基类中多次使用相同的名称，则Lines中只有一个该名称的属性。
+
+### 索引0和-1
+如前所述，Lines是线群，线是一组点的集合，这些点在绘制在一起形成一条线（例如，沿着时间轴将所有收盘价连在一起就形成收盘价曲线）  
+  
+要在常规代码中访问这些点，一般通过0索引的方式对当前点进行get/set操作。  
+策略只能读取数据， 指标既可以读取也可以写入数据。  
+
+回顾前面简单的示例，策略中的next方法：
+```python
+def next(self):
+    if self.movav.lines.sma[0] > self.data.lines.close[0]:
+        print('简单移动平均线大于收盘价')
+```
+通过索引0获得移动平均线的当前值和当前收盘价，并比较它们的大小。
+
+>注意：  
+>实际上对于索引0，可直接进行逻辑/算术运算操作，如下所示：
+```python
+if self.movav.lines.sma > self.data.lines.close:
+    ...
+```
+更多相关说明请参阅文档后面的《操作章节》。  
+  
+在指标开发的应用中，会出现赋值操作。  
+例如SimpleMovingAverage的当前值可以通过如下方式进行读写：
+```python
+def next(self):
+  self.line[0] = math.fsum(self.data.get(0, size=self.p.period)) / self.p.period
+```
+访问前一个点集合可以按照Python访问数组索引为-1的方式：
+* 它指向数组的最后一项  
+  
+框架认为最后一项为（读写当前点的前一个点）索引值为-1。    
+因此，在策略中比较当前收盘价与前一个收盘价是通过 0 vs -1的方式。例如：
+```python
+def next(self):
+    if self.data.close[0] > self.data.close[-1]:
+        print('今天收盘价更高')
+```
+同理，使用-1，-2，-3，...便访问-1之前项的价格。
