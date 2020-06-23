@@ -1924,7 +1924,7 @@ Lines继承
 * 支持多重继承
 * 所有基类的Lines均被继承。被命名为Lines的情况下，如果在基类中多次使用相同的名称，则Lines中只有一个该名称的属性。
 
-### 索引0和-1
+## 索引0和-1
 
 如前所述，Lines是线群，线是一组点的集合，这些点在绘制在一起形成一条线（例如，沿着时间轴将所有收盘价连在一起就形成收盘价曲线）
 
@@ -1973,6 +1973,100 @@ def next(self):
 ```
 
 同理，使用-1，-2，-3，...便访问-1之前项的价格。
+
+## 切片
+backtrader不支持对线对象进行切片，这是遵循[0]和[-1]索引方案的设计决策。 使用常规的可索引Python对象，可以执行以下操作：
+```python
+# 从开始到结尾的切片
+myslice = self.my_sma[0:]  
+```
+但是请记住，选择0…实际上是当前开始传递的值，之后也没有任何值。
+```python
+# 从开始到结尾的切片
+myslice = self.my_sma[0:-1] 
+```
+同样，…0是当前值，而-1是先前交付的值。 这就是为什么从0->-1进行的切片反向操作就毫无意义的原因。  
+如果可以反向操作，那么切片可能应该这样：
+```python
+# 从当前点向前的切片
+myslice = self.my_sma[:0] 
+# 从最后的值到当前值
+myslice = self.my_sma[-1:0]  
+# 从最后的值到倒数第3个值
+myslice = self.my_sma[-3:-1]  
+```
+
+### 获取切片
+可以获得具有最新值的数组，语法：
+```python
+# 显示默认值
+myslice = self.my_sma.get(ago=0, size=1)  
+```
+返回一个数组，该数组的大小为1，当前时刻为0，向后获取。  
+要从当前时间点获取10个值（即：最后10个值）：
+```python
+# ago的默认值为0
+myslice = self.my_sma.get(size=10)  
+```
+常规数组具有你所期望的顺序。最左边的值是最旧的值，最右边的值是最新的值（这是常规的python数组，而不是lines对象）。  
+
+```python
+# 跳过当前点获取最后10个值
+myslice = self.my_sma.get(ago=-1, size=10)
+```
+## 线的延迟索引
+[]运算符可用于在next逻辑阶段提取单个值。lines对象支持附加的符号，以便在\_\_init\_\_阶段通过延迟的线对象寻址取值。  
+假设一条逻辑是将先前的收盘价与简单移动平均线的实际值进行比较。无需在每次next迭代中进行手动操作，而是可以生成预定义的lines对象：
+```python
+class MyStrategy(bt.Strategy):
+    params = dict(period=20)
+
+    def __init__(self):
+
+        self.movav = btind.SimpleMovingAverage(self.data, period=self.p.period)
+        self.cmpval = self.data.close(-1) > self.sma
+
+    def next(self):
+        if self.cmpval[0]:
+            print('上一个收盘价高于当前移动平均值')
+```
+这里使用"()"延迟符号：  
+* 这提供了收盘价的副本，但延迟了-1。    
+比较self.data.close（-1）> self.sma 会生成另一个line对象，如果条件为True，则返回1，否则为0
+
+## 线(群)的耦合
+运算符()可以与延迟的数值一起使用，以提供延迟的line对象。  
+如果使用中不提供延迟数值，则返回LinesCoupler对象。这是为了在操作具有不同时间范围的数据指标之间建立耦合。  
+不同时间范围的交易数据具有不同的长度，并且指标在操作这些数据时会复制数据的长度。例如：
+* 日交易数据每年约有250条
+* 周交易数据每年有52条
+  
+尝试创建一个比较两个简单移动平均线的操作，每次操作在引用数据时都有可能被中断。因为系统不知道如何在250条的日交易数据和52条的周交易数据之间进行匹配。
+  
+读者可以通过找出一天和一周的对应关系进行比较，但是：
+* 指标只是数学公式，没有日期时间信息  
+他们对上下文环境一无所知，只要提供了足够的数据，就可以进行计算。  
+  
+于是()表示法（空调用）可用于解决这个问题：
+```python
+class MyStrategy(bt.Strategy):
+    params = dict(period=20)
+
+    def __init__(self):
+
+        # data0 是日交易数据
+        sma0 = btind.SMA(self.data0, period=15)  # 15天sma
+        # data1 是周要以数据
+        sma1 = btind.SMA(self.data1, period=5)  # 5周sma
+
+        self.buysig = sma0 > sma1()
+
+    def next(self):
+        if self.buysig[0]:
+            print('每日sma大于每周sma1')
+```
+在这里，较大的时间范围指标sma1通过sma1()与每日时间范围耦合。这将返回与更大数量的sma0兼容的对象，并复制sma1产生的值，从而有效地将52个周数据分散为250个日数据。
+
 
 # Cerebro(核心引擎)
 
