@@ -2109,7 +2109,7 @@ class MyStrategy(bt.Strategy):
 ```
 完成上述操作后，sell_sig是一个Lines对象，当指示满足条件时，可以直接在策略中使用。
 
-### 情景2-忠于自然的经营者
+### 情景2-逻辑操作符
 首先，策略的next方法，系统要处理每个柱时都要调用该方法，这就是操作符处于情景2地方。以前面的示例为基础：
 ```python
 class MyStrategy(bt.Strategy):
