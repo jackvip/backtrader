@@ -2067,7 +2067,150 @@ class MyStrategy(bt.Strategy):
 ```
 在这里，较大的时间范围指标sma1通过sma1()与每日时间范围耦合。这将返回与更大数量的sma0兼容的对象，并复制sma1产生的值，从而有效地将52个周数据分散为250个日数据。
 
+## 通过操作符构造对象
+为了实现“简单易用”的目标，backtrader允许（在Python的语法范围内）使用操作符。为了进一步简单化，操作符的使用有两种情景。  
+### 情景1-操作符创建对象
+我们之前已经看到了一个例子。在指标和策略类的对象初始化阶段（\_\_init\_\_方法）中，操作符创建并保存可以持续使用的对象，供策略逻辑在评估阶段使用。  
+将SimpleMovingAverage的潜在实现方式进一步细分为多个步骤。    
+SimpleMovingAverage指标\_\_init\_\_内的代码可能如下：
+```python
+def __init__(self):
+    # N个周期值的总和，数据总和是一个Lines对象
+    # 在与运算符[]和索引0查询时
+    # 返回当前总和
+    datasum = btind.SumN(self.data, period=self.params.period)
+    # datasum（虽然是单行，但仍是一个Lines对象）
+    # 在这种情况下它可以除以int/float类型的数据。 
+    # 但实际上它被除以后得到另外一个Lines对象。
+    # 该操作返回分配给av对象
+    # 当查询为[0]，则返回当前时间点的平均值
+    av = datasum / self.params.period
+    # av是对新的Lines对象的命名
+    # 其他对象使用这个指标可以直接访问计算
+    self.line.sma = av
+```
+策略初始化期间显示了更加完整的用法：
+```python
+class MyStrategy(bt.Strategy):
 
+    def __init__(self):
+
+        sma = btind.SimpleMovinAverage(self.data, period=20)
+
+        close_over_sma = self.data.close > sma
+
+        sma_dist_to_high = self.data.high - sma
+
+        sma_dist_small = sma_dist_to_high < 3.5
+
+        # 不幸的是，"and"不能在Python中被重载
+        # 在python中and不属于运算符，所以backtrader提供一个函数模拟这个功能
+        sell_sig = bt.And(close_over_sma, sma_dist_small)
+```
+完成上述操作后，sell_sig是一个Lines对象，当指示满足条件时，可以直接在策略中使用。
+
+### 情景2-忠于自然的经营者
+首先，策略的next方法，系统要处理每个柱时都要调用该方法，这就是操作符处于情景2地方。以前面的示例为基础：
+```python
+class MyStrategy(bt.Strategy):
+    def __init__(self):
+        sma = btind.SimpleMovinAverage(self.data, period=20)
+
+        close_over_sma = self.data.close > sma
+
+        sma_dist_to_high = self.data.high - sma
+
+        sma_dist_small = sma_dist_to_high < 3.5
+
+        # 不幸的是，"and"不能在Python中被重载
+        # 在python中and不属于运算符，所以backtrader提供一个函数模拟这个功能
+        sell_sig = bt.And(close_over_sma, sma_dist_small)
+
+    def next(self):
+        # 尽管这看起来不像是“操作号”，但确实返回的是正在测试对象的True/False
+        if self.sma > 30.0:
+            print('sma大于30.0')
+
+        if self.sma > self.data.close:
+            print('sma高于收盘价')
+
+        if self.sell_sig:  # if sell_sig == True: would also be valid
+            print('卖出标志为True')
+        else:
+            print('卖出标志为False')
+
+        if self.sma_dist_to_high > 5.0:
+            print('sma到high的距离大于5.0')
+```
+这不是一个非常有用的策略，只是一个例子。在情景2中，操作符返回期望值（如果测试值为True，则返回布尔值；如果是浮点数进行比较，则返回浮点数），并且算术运算也返回期望值。  
+>注意：  
+>为了进一步简化，比较实际上没有使用操做符。  
+>if self.sma > 30.0: …比较 self.sma[0] 和 30.0   
+>if self.sma > self.data.close: … 比较 self.sma[0] 和 self.data.close[0]  
+
+### 一些不可重载的运算符/函数
+Python不允许重载所有内容，因此提供了一些功能函数来应对这种情况。
+>注意：仅适用于情景1，以创建对象供后面使用。
+
+操作符:  
+* and -> And
+* or -> Or
+
+逻辑控制:
+* if -> If
+
+函数:
+* any -> Any
+* all -> All
+* cmp -> Cmp
+* max -> Max
+* min -> Min
+* sum -> Sum
+* reduce -> Reduce
+
+Sum实际上使用math.fsum作为底层操作，因为backtrader使用浮点数计算，如果用常规sum可能会影响精度。  
+    
+这些实用的操作符/函数可迭代使用。可迭代的元素可以是常规的Python数字类型（int，float等），也可以是带有Lines的对象。 例如一个非常原始的买入信号：
+```python
+class MyStrategy(bt.Strategy):
+    def __init__(self):
+        sma1 = btind.SMA(self.data.close, period=15)
+        self.buysig = bt.And(sma1 > self.data.close, sma1 > self.data.high)
+
+    def next(self):
+        if self.buysig[0]:
+            pass  # do something here
+```
+例如sma1高于最高价，则必高于收盘价，这里重点是说明bt.And的用法。  
+bt.If用法：
+```python
+class MyStrategy(bt.Strategy):
+
+    def __init__(self):
+        # 在period=15的data.close上生成SMA
+        sma1 = btind.SMA(self.data.close, period=15)
+        # 如果sma的值大于close，则返回low，否则返回high
+        high_or_low = bt.If(sma1 > self.data.close, self.data.low, self.data.high)
+        sma2 = btind.SMA(high_or_low, period=15)
+```
+解释说明：
+* 在period=15的data.close上生成sma1
+* 如果sma1的值大于close，则返回low，否则返回high
+* 调用bt.If时不会返回任何实际值。它返回一个Lines对象，就像SimpleMovingAverage一样，这些值将在稍后计算中会用到
+* 然后将bt.If生成的Lines对象赋值给sma2该,sma2有时会使用最低价，有时会使用高价进行计算
+
+这些函数也可以使用数值，修改后得到示例：
+```python
+class MyStrategy(bt.Strategy):
+    def __init__(self):
+        sma1 = btind.SMA(self.data.close, period=15)
+        high_or_30 = bt.If(sma1 > self.data.close, 30.0, self.data.high)
+        sma2 = btind.SMA(high_or_30, period=15)
+```
+现在，sma2使用30.0或最高价进行计算，具体取决于sma1和close的比较结果。
+>注意：数值30在内部转换为伪迭代，始终返回30
+  
+  
 # Cerebro(核心引擎)
 
 Cerebro类是backtrader的引擎，是以下几个方面的核心：
