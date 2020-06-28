@@ -2035,6 +2035,54 @@ myslice = self.my_sma.get(ago=-1, size=10)
 <li>返回结果</li>
 <li>绘图</li>
 </ul>
+<h2 id="-">收集输入数据</h2>
+<ol>
+<li><p>以创建cerebro开始:</p>
+<pre><code class="lang-python"># **kwargs参数支持某些控制执行，请参阅后面文档（相同的参数也应用于run方法）
+cerebro = bt.Cerebro(**kwargs)
+</code></pre>
+</li>
+<li><p>添加交易数据
+最常见的模式是 cerebro.adddata（data），其中data是已实例化的数据源。例：</p>
+<pre><code class="lang-python">data = bt.BacktraderCSVData(dataname=&#39;mypath.days&#39;, timeframe=bt.TimeFrame.Days)
+cerebro.adddata(data)
+</code></pre>
+<p>重新采样或数据重播遵循相同的模式：</p>
+<pre><code class="lang-python">data = bt.BacktraderCSVData(dataname=&#39;mypath.min&#39;, timeframe=bt.TimeFrame.Minutes)
+cerebro.resampledata(data, timeframe=bt.TimeFrame.Days)
+# 或者
+data = bt.BacktraderCSVData(dataname=&#39;mypath.min&#39;, timeframe=bt.TimeFrame.Minutes)
+cerebro.replaydatadata(data, timeframe=bt.TimeFrame.Days)
+</code></pre>
+<p>系统可以接受任何数量的交易数据，包括将常规数据与重采样和/或重播的数据混合。当然，这些组合中的某些组合肯定会毫无意义，并且为了组合数据有意义增加了限制条件：根据时间条件限制。请参阅数据章节的多个时间范围、数据重采样和数据重播部分。</p>
+</li>
+<li><p>添加策略
+与交易数据不同的是交易数据已经是类的实例，而cerebro是直接使用策略类和参数。因为：在策略优化方案中，该类将被实例化多次并传递不同的参数。<br>即使没有运行策略优化方案，该模式仍然适用：</p>
+<pre><code class="lang-python">cerebro.addstrategy(MyStrategy, myparam1=value1, myparam2=value2)
+# 优化时，必须将参数作为可迭代对象添加。有关详细说明，请参见“优化”部分。
+cerebro.optstrategy(MyStrategy, myparam1=range(10, 20))
+</code></pre>
+<p>它将使用myparam1值从10到19的值运行MyStrategy10次（记住Python中的范围是半开的，不会取到20）</p>
+</li>
+<li><p>其他要素
+可以添加其他一些元素来增强回测体验，请参见相应的部分。方法是：</p>
+</li>
+<li>addwriter</li>
+<li>addanalyzer</li>
+<li><p>addobserver (or addobservermulti)</p>
+</li>
+<li><p>更换经纪人
+Cerebro将在backtrader中使用默认经纪人，但是可以被重写：</p>
+<pre><code class="lang-python">broker = MyBroker()
+cerebro.broker = broker  # property using getbroker/setbroker methods
+</code></pre>
+</li>
+<li>接收通知
+如果交易数据和/或代理发送通知（被store provider创建的通知），则它们将通过Cerebro.notify_store方法接收。有三种处理通知的方法：  </li>
+<li>通过addnotifycallback(callback)方法将回调添加到cerebro实例中。 回调方法如下：<br>callback(msg, <em>args, **kwargs)<br>实际收到的msg，</em> args和** kwarg 由（data/broker/store）来决定，但通常它们是可打印的，以便进行接收和实验。  </li>
+<li>在Strategy子类中的覆盖notify_store方法<br>notify_store（self，msg，<em> args，*</em> kwargs）</li>
+<li>通过子类继承Cerebro并覆盖notify_store（与策略中的方法相同）<br>最不推荐使用该方法</li>
+</ol>
 <h1 id="-">交易数据</h1>
 <p>backtrader带有一组交易数据解析器（解析所有基于CSV格式的文件），可让你从不同来源加载数据。</p>
 <ul>
