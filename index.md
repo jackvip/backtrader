@@ -2221,13 +2221,13 @@ Cerebro类是backtrader的引擎，是以下几个方面的核心：
 * 绘图
 
 ## 收集输入数据
-1. 以创建cerebro开始:
+1.以创建cerebro开始:  
 ```python
 # **kwargs参数支持某些控制执行，请参阅后面文档（相同的参数也应用于run方法）
 cerebro = bt.Cerebro(**kwargs)
 ```
 
-2. 添加交易数据
+2.添加交易数据  
 最常见的模式是 cerebro.adddata（data），其中data是已实例化的数据源。例：
 ```python
 data = bt.BacktraderCSVData(dataname='mypath.days', timeframe=bt.TimeFrame.Days)
@@ -2243,7 +2243,7 @@ cerebro.replaydatadata(data, timeframe=bt.TimeFrame.Days)
 ```
 系统可以接受任何数量的交易数据，包括将常规数据与重采样和/或重播的数据混合。当然，这些组合中的某些组合肯定会毫无意义，并且为了组合数据有意义增加了限制条件：根据时间条件限制。请参阅数据章节的多个时间范围、数据重采样和数据重播部分。
 
-3. 添加策略
+3.添加策略  
 与交易数据不同的是交易数据已经是类的实例，而cerebro是直接使用策略类和参数。因为：在策略优化方案中，该类将被实例化多次并传递不同的参数。  
 即使没有运行策略优化方案，该模式仍然适用：
 ```python
@@ -2253,28 +2253,27 @@ cerebro.optstrategy(MyStrategy, myparam1=range(10, 20))
 ```
 它将使用myparam1值从10到19的值运行MyStrategy10次（记住Python中的范围是半开的，不会取到20）
 
-4. 其他要素
-可以添加其他一些元素来增强回测体验，请参见相应的部分。方法是：
+4.其他要素  
+可以添加其他一些元素来增强回测体验，请参见相应的部分。方法是：  
 * addwriter
 * addanalyzer
 * addobserver (or addobservermulti)
 
-5. 更换经纪人
+5.更换经纪人  
 Cerebro将在backtrader中使用默认经纪人，但是可以被重写：
 ```python
 broker = MyBroker()
 cerebro.broker = broker  # property using getbroker/setbroker methods
 ```
-6. 接收通知
-如果交易数据和/或代理发送通知（被store provider创建的通知），则它们将通过Cerebro.notify_store方法接收。有三种处理通知的方法：  
+6.接收通知  
+如果交易数据和/或代理发送通知（被store provider创建的通知），则它们将通过Cerebro.notify_store方法接收。有三种处理通知的方法：
 * 通过addnotifycallback(callback)方法将回调添加到cerebro实例中。 回调方法如下：  
 callback(msg, *args, **kwargs)  
-实际收到的msg，* args和** kwarg 由（data/broker/store）来决定，但通常它们是可打印的，以便进行接收和实验。  
+实际收到的msg，* args和** kwarg 由（data/broker/store）来决定，但通常它们是可打印的，以便进行接收和实验。 
 * 在Strategy子类中的覆盖notify_store方法  
 notify_store（self，msg，* args，** kwargs）
 * 通过子类继承Cerebro并覆盖notify_store（与策略中的方法相同）  
 最不推荐使用该方法
-
 
 
 # 交易数据
