@@ -2028,6 +2028,7 @@ myslice = self.my_sma.get(ago=-1, size=10)
 <p>注意：数值30在内部转换为伪迭代，始终返回30</p>
 </blockquote>
 <h1 id="cerebro-">Cerebro(核心引擎)</h1>
+<h2 id="cerebro">Cerebro</h2>
 <p>Cerebro类是backtrader的引擎，是以下几个方面的核心：</p>
 <ul>
 <li>收集所有输入（Data Feeds），执行（Stratgegies），监控（Observers），评测（Analyzers）和记录（Writers），以确保系统随时运行。</li>
@@ -2035,7 +2036,7 @@ myslice = self.my_sma.get(ago=-1, size=10)
 <li>返回结果</li>
 <li>绘图</li>
 </ul>
-<h2 id="-">收集输入数据</h2>
+<h3 id="-">收集输入数据</h3>
 <p>1.以创建cerebro开始:  </p>
 <pre><code class="lang-python"># **kwargs参数支持某些控制执行，请参阅后面文档（相同的参数也应用于run方法）
 cerebro = bt.Cerebro(**kwargs)
@@ -2074,6 +2075,67 @@ cerebro.broker = broker  # property using getbroker/setbroker methods
 <li>在Strategy子类中的覆盖notify_store方法<br>notify_store（self，msg，<em> args，*</em> kwargs）</li>
 <li>通过子类继承Cerebro并覆盖notify_store（与策略中的方法相同）<br>最不推荐使用该方法</li>
 </ul>
+<h3 id="-">执行回测</h3>
+<p>运行回测比较简单，但是它支持多个选项来决定如何运行（可以在实例化时指定运行模式）：</p>
+<pre><code class="lang-python">result = cerebro.run(**kwargs)
+</code></pre>
+<p>请参阅下文中相关部分，以了解可用的参数选项。</p>
+<h4 id="-">标准观察者</h4>
+<p>cerebro（除非另有说明）自动实例化三个标准观察者  </p>
+<ul>
+<li>经纪人观察者用来跟踪现金和投资组合的价值</li>
+<li>交易观察者，会显示每笔交易所产生的影响</li>
+<li>买/卖观察者主要对订单操作进行记录</li>
+</ul>
+<p>如果希望使用更干净的绘图，可通过stdstats = False 来禁用这些观察者。  </p>
+<h3 id="-">返回结果</h3>
+<p>cerebro返回在回测期间创建的策略实例。由于策略中的所有元素都可访问，因此可以分析他们的操作：</p>
+<pre><code class="lang-python">result = cerebro.run(**kwargs)
+</code></pre>
+<p>返回结果的格式将根据是否使用优化选项而有所不同（策略可以通过optstrategy方式添加到cerebro中）：</p>
+<ul>
+<li>所有策略通过addstrategy添加<br>result返回的是一个list</li>
+<li>1个或多个策略通过optstrategy添加<br>result返回的是list的list， 每个列表项是对应策略返回的list。</li>
+</ul>
+<blockquote>
+<p>注意<br>为使得内核传递的消息更轻便，现在optimization默认返回分析器analyzers。</p>
+</blockquote>
+<p>如果希望将整套策略作为返回值，请将参数optreturn设置为False。</p>
+<h3 id="-">便捷绘图</h3>
+<p>如果安装了matplotlib，则可以绘制策略结果。 通常的模式是：</p>
+<pre><code class="lang-python">cerebro.plot（）
+</code></pre>
+<p>请阅读下面的参考中“绘图”部分。</p>
+<h3 id="-">回测逻辑</h3>
+<p>回测流程概述：  </p>
+<p>1.传递store中的所有通知；</p>
+<p>2.令数交易数据以柱集合方式传递给next方法；<br>在版本1.9.0.99中已更改为：<br>交易数据根据datetime同步检索出来，然后提供给next方法。当没有新时间段的交易数据时，就使用旧的数据，有则使用新的（指标中的计算也是如此）。<br>如果过使用旧版本的默认行为，就在使用Cerebro时，将oldsync=True。    </p>
+<p>插入到系统中的第一个数据是主数据，其他交易数据为从属数据，系统将等待第一次响应时钟，并且：  </p>
+<ul>
+<li>如果下一时钟周期比datamaster已传递的数据时间要新，则该数据将不会被传递。</li>
+<li>由于多种原因，可能会出现在没有提供新报价的情况下提前返回</li>
+</ul>
+<p>该逻辑目的在于同步多个具有不同时间点的数据。   </p>
+<p>3.将有关订单，交易和现金/价值的消息队列，通过经纪通知给策略； </p>
+<p>4.告知经纪人接受订单队列并使用新数据执行挂单操作；  </p>
+<p>5.调用该策略的next方法，以使该策略评估新数据（以及可能发布在经纪人中排队的订单）<br>根据阶段的不同，在满足策略/指标的最短期限要求之前（可能在prenext或者nextstart方法中），这些策略内部还将对观察者，指标，分析器和其他活跃要素产生影响；  </p>
+<p>6.告诉任何记录器将数据写入目标。  </p>
+<p>重要的考虑因素：  </p>
+<blockquote>
+<p>注意:<br>在上面的步骤1中，当交易数据传递新的一组柱线时，旧柱线被关闭，这意味着这些被关闭的数据已经发生过。</p>
+</blockquote>
+<p>因此，无法使用步骤1中的数据执行步骤4中策略发出的订单。<br>这意味着定单将以x + 1的概念执行，其中x是定单执行的柱线，x + 1是下一个定单，这是可能执行定单的最早时间。</p>
+<h3 id="-">相关介绍</h3>
+<p><strong>class backtrader.Cerebro()</strong>
+参数：</p>
+<ul>
+<li>preload (default: True) 是否为策略预先加载传递给cerebro的不同的交易数据</li>
+<li>runonce (default: True) 在矢量模式下运行指标，以加快整个系统的运行速度，策略和观察者将始终基于事件运行</li>
+<li>live (default: False) 如果没有实时数据（通过数据的islive方法，但用户仍希望以实时模式运行，可以将此参数设置为true），这将同时停用preload和runonce,它不会对内存节省方案产生影响。</li>
+</ul>
+<blockquote>
+<p>未完待续...</p>
+</blockquote>
 <h1 id="-">交易数据</h1>
 <p>backtrader带有一组交易数据解析器（解析所有基于CSV格式的文件），可让你从不同来源加载数据。</p>
 <ul>
