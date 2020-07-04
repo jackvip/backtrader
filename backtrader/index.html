@@ -2154,6 +2154,7 @@ cerebro.broker = broker  # property using getbroker/setbroker methods
 </li>
 </ul>
 <h1 id="-">策略</h1>
+<h2 id="-">简介</h2>
 <p>Cerebro是backtrader的心核心，策略是用户的核心。  </p>
 <p>研究一下策略的生命周期:   </p>
 <blockquote>
@@ -2217,6 +2218,216 @@ cerebro通知strategy开始运行，默认值是一个空方法。</p>
 <li>close方法可以平仓</li>
 <li>cancel方法取消尚未执行的订单</li>
 </ul>
+<h1 id="-">指标</h1>
+<h2 id="-">指标用法</h2>
+<p>指标可以在backtrader的两个地方使用：</p>
+<ul>
+<li>策略内部</li>
+<li>其他指标内部</li>
+</ul>
+<h3 id="-">指标使用逻辑</h3>
+<p>1.&ensp;指标始终在策略的__init__期间实例化<br>2.&ensp;指标的值（或者指标派生出来的值）在next方法中被使用  </p>
+<p>有一个重要的公理要考虑：<br>在__init__期间声明的任何指标（或其派生值）将在调用next之前进行预先计算。<br>我们来探讨一下操作模式的差异：  </p>
+<h4 id="-_-_init-_-_-vs-next">__init__ vs next</h4>
+<ul>
+<li>在__init__期间涉及线对象的任何操作都会生成另一个线对象</li>
+<li>在next方法中任何涉及line对象的操作都会产生常规的Python类型，例如float和bool。</li>
+</ul>
+<h4 id="-_-_init-_-_-">__init__ 初始化期间</h4>
+<pre><code class="lang-python">hilo_diff = self.data.high - self.data.low
+# 变量hilo_diff拥有对lines对象的引用，该引用在调用next之前已预先计算，可以使用标准数组符号[]进行访问，它包含了每个条交易数据的最高价和最低价之差。
+</code></pre>
+<p>当混合简单的线（如self.data交易数据的线）和复杂的线（如指标）时，同样适用：</p>
+<pre><code class="lang-python">sma = bt.SimpleMovingAverage(self.data.close)
+close_sma_diff = self.data.close - sma
+# close_sma_diff 包含一个线对象
+</code></pre>
+<p>使用逻辑运算符：</p>
+<pre><code class="lang-python">close_over_sma = self.data.close &gt; sma
+# 此时生成的lines对象将包含一个布尔数组
+</code></pre>
+<h4 id="next-">next方法中</h4>
+<pre><code class="lang-python"># 操作示例（逻辑运算符）
+close_over_sma = self.data.close&gt; self.sma
+</code></pre>
+<pre><code class="lang-python"># 使用等效数组（基于索引0的表示法）
+close_over_sma = self.data.close [0]&gt; self.sma [0]
+</code></pre>
+<p>在这种情况下，close_over_sma会产生一个布尔值，该值是比较两个浮点值的结果，这两个浮点值是由[0]运算符返回的值应用于self.data.close和self.sma的</p>
+<h4 id="-_-_init-_-_-next-">为什是__init__而不是next的原因</h4>
+<p>逻辑简化易用是关键。可以在__init__期间进行相关的声明和计算，以便在next方法中将实际操作逻辑降至最低。<br>还有额外的好处：速度（因为一开始就预先计算好了）。<br>一个在__init__期间生成购买信号的完整示例：</p>
+<pre><code class="lang-python">class MyStrategy(bt.Strategy):
+
+    def __init__(self):
+
+        sma1 = btind.SimpleMovingAverage(self.data)
+        ema1 = btind.ExponentialMovingAverage()
+
+        close_over_sma = self.data.close &gt; sma1
+        close_over_ema = self.data.close &gt; ema1
+        sma_ema_diff = sma1 - ema1
+
+        buy_sig = bt.And(close_over_sma, close_over_ema, sma_ema_diff &gt; 0)
+
+    def next(self):
+
+        if buy_sig:
+            self.buy()
+</code></pre>
+<blockquote>
+<p>注意<br>无法覆盖Python的and运算符，所以使用backtrader自定义的And，类似的函数还有Or和If。</p>
+</blockquote>
+<p>显而易见，在__init__期间使用“声明式”方法可以将next方法中（实际策略触发的地方）的cpu使用降至最低。</p>
+<blockquote>
+<p>注意<br>当逻辑变得非常复杂并涉及多个操作时，通常最好将其封装在一个指标类中。</p>
+</blockquote>
+<h3 id="-">一些注意事项</h3>
+<p>在上面的示例中，与其他平台相比，backtrader简化了两件事：</p>
+<ul>
+<li>声明的指标既没有获取父参数（例如创建它们的策略）也没有调用任何类型的“注册”方法/函数。<br>尽管该策略没有启动指标计算，但是由于sma-ema的操作，线对象依然会生成。</li>
+<li>在没有self.data的情况下实例化了ExponentialMovingAverage<br>如果未传递任何数据，则父级（策略）的第1个数据将被自动传递。</li>
+</ul>
+<h3 id="-">指标绘图</h3>
+<p>首先，最重要的是：</p>
+<ul>
+<li>声明的指标会自动被绘制（如果调用cerebro.plot）</li>
+<li>不会绘制操作的线条对象（例如close_over_sma = self.data.close&gt; self.sma）<br>如果需要，可以使用LinePlotterIndicator方法来辅助绘制：<pre><code class="lang-python">close_over_sma = self.data.close&gt; self.sma
+LinePlotterIndicator（close_over_sma,name =&#39;Close_over_SMA&#39;）
+# name参数将名称指定给此指标
+</code></pre>
+</li>
+</ul>
+<h4 id="-">绘图控制</h4>
+<blockquote>
+<p>未完待续...</p>
+</blockquote>
+<h2 id="-">指标开发</h2>
+<p>如果必须定制任何内容（一个或多个获胜策略除外），这一定是自定义指标。<br>backtrader下自定义指标非常容易。<br>必要流程如下：</p>
+<ul>
+<li>从指标（直接或从已经存在的子类）派生的类；</li>
+<li>定义将需要保存或使用的线对象；</li>
+<li>指标必须至少有1条线，如果继承了一个指标，则线对象已经被定义过了；
+<em>（可选）定义可以更改行为的参数；
+</em>（可选）提供/定制一些元素，以实现对指标的合理绘制；</li>
+<li>在__init__中提供一个完整定义的操作，并绑定（分配）到指标的线，或者提供next 和（可选） once 方法使用；<br>如果在初始化期间使用逻辑/算术运算完全定义一个指标，并且结果分配给该线。<br>如果不是如此，至少必须提下一个指标，该指标必须为索引为0的线分配一个值，可以通过once方法来实现Runonce模式（批处理操作）的计算优化。</li>
+</ul>
+<h3 id="-">重要说明：幂等性</h3>
+<p>指标为收到的每个柱线产生输出。 不必假设同一柱将被发送多少次，操作必须是幂等的。<br>其基本原理：  </p>
+<ul>
+<li>相同的柱线（以索引为单位）可以通过更改值（即，更改值是收盘价）多次发送。</li>
+</ul>
+<p>例如，“重播”每日会话，可以使用由5分钟柱组成的日内数据。</p>
+<p>backtrader允许使用实时交易数据。</p>
+<h4 id="-">一个虚拟（但功能正常）指标</h4>
+<pre><code class="lang-python">class DummyInd(bt.Indicator):
+    lines = (&#39;dummyline&#39;,)
+
+    params = ((&#39;value&#39;, 5),)
+
+    def __init__(self):
+        self.lines.dummyline = bt.Max(0.0, self.params.value)
+</code></pre>
+<p>指标将始终输出相同的值：0.0或self.params.value（如果恰好大于0.0）。<br>相同的指标，但使用next方法： </p>
+<pre><code class="lang-python">class DummyInd(bt.Indicator):
+    lines = (&#39;dummyline&#39;,)
+
+    params = ((&#39;value&#39;, 5),)
+
+    def next(self):
+        self.lines.dummyline[0] = max(0.0, self.params.value)
+</code></pre>
+<blockquote>
+<p>注意
+在__init__版本中，使用bt.Max分配Line对象给self.lines.dummyline。</p>
+</blockquote>
+<p>bt.Max返回一个line对象，该对象会针对传递到指标的每个柱线自动进行迭代。<br>如果使用max代替，则分配将是毫无意义的，因为指标得到一个固定值，而不是一个线对象。
+在next方法中，将直接使用浮点值完成工作，并且可以使用内置标准的max函数。  </p>
+<p>让我们回顾一下，self.lines.dummyline是长符号，可以将其缩短为：</p>
+<ul>
+<li>self.l.dummyline 
+甚至</li>
+<li>self.dummyline</li>
+</ul>
+<p>后者只有在代码未使用member属性才有能使用。
+第三个也是最后一个版本提供了一种额外的once方法来优化计算：</p>
+<pre><code class="lang-python">class DummyInd(bt.Indicator):
+    lines = (&#39;dummyline&#39;,)
+
+    params = ((&#39;value&#39;, 5),)
+
+    def next(self):
+        self.lines.dummyline[0] = max(0.0, self.params.value)
+
+    def once(self, start, end):
+       dummy_array = self.lines.dummyline.array
+
+       for i in xrange(start, end):
+           dummy_array[i] = max(0.0, self.params.value)
+</code></pre>
+<p>无论如何__init__版本是最好的：</p>
+<ul>
+<li>一切都限于初始化</li>
+<li>next和once（均已优化，因为bt.Max已经拥有它们），自动提供而无需使用索引和/或公式</li>
+</ul>
+<p>如果需要开发，该指标还可以覆盖与next和once相关的方法：</p>
+<ul>
+<li>prenext和nexstart</li>
+<li>reonce和oncestart</li>
+</ul>
+<h4 id="-">手动/自动最短时间</h4>
+<p>如果可能，backtrader将对其进行计算，但可能需要手动操作。
+这是简单移动平均线的潜在实现：</p>
+<pre><code class="lang-python">class SimpleMovingAverage1(Indicator):
+    lines = (&#39;sma&#39;,)
+    params = ((&#39;period&#39;, 20),)
+
+    def next(self):
+        datasum = math.fsum(self.data.get(size=self.p.period))
+        self.lines.sma[0] = datasum / self.p.period
+</code></pre>
+<p>尽管听起来不错，但backtrader不知道最小周期是多少，即使该参数被命名为“period”（名称可能会引起误解，并且某些指标会收到几种用法不同的“period”）</p>
+<p>在这种情况下，将已经为第一个数据柱调用了next方法，因为get方法无法返回所需的self.p.period，将会导致一系列的异常。</p>
+<p>在解决情况之前，必须考虑以下事项：</p>
+<ul>
+<li>传递给指标的交易数据可能已经存在最短时间
+样例SimpleMovingAverage可以在以下位置进行：</li>
+<li>常规交易数据：默认最小周期为1（只需等待进入系统的第一个柱）</li>
+<li>另一个移动平均线...这已经有一个周期
+&emsp;&emsp;如果这是20，而我们的样本移动平均线也为20，那么我们的最小周期为40条
+&emsp;&emsp;实际上，内部计算结果为39...因为第一个移动平均线一旦产生一个柱线，便会计入下一个移动平均线，这会产生重叠的柱线，因此需要39。</li>
+<li>其他带有期间的指标/目标</li>
+</ul>
+<p>替代方法如下：</p>
+<pre><code class="lang-python">class SimpleMovingAverage1(Indicator):
+    lines = (&#39;sma&#39;,)
+    params = ((&#39;period&#39;, 20),)
+
+    def __init__(self):
+        self.addminperiod(self.params.period)
+
+    def next(self):
+        datasum = math.fsum(self.data.get(size=self.p.period))
+        self.lines.sma[0] = datasum / self.p.period
+</code></pre>
+<p>addminperiod方法是让系统考虑该指标所需的额外周期条，以考虑可能存在的任何最小周期。
+如果所有计算都是使用已经将其周期需求传达给系统的对象完成的，则有时绝对不需要。</p>
+<p>使用直方图的快速MACD实现：</p>
+<pre><code class="lang-python">from backtrader.indicators import EMA
+
+class MACD(Indicator):
+    lines = (&#39;macd&#39;, &#39;signal&#39;, &#39;histo&#39;,)
+    params = ((&#39;period_me1&#39;, 12), (&#39;period_me2&#39;, 26), (&#39;period_signal&#39;, 9),)
+
+    def __init__(self):
+        me1 = EMA(self.data, period=self.p.period_me1)
+        me2 = EMA(self.data, period=self.p.period_me2)
+        self.l.macd = me1 - me2
+        self.l.signal = EMA(self.l.macd, period=self.p.period_signal)
+        self.l.histo = self.l.macd - self.l.signal
+</code></pre>
+<blockquote>
+<p>未完待续</p>
+</blockquote>
 
           	</article>
         </div>
