@@ -2636,9 +2636,7 @@ class SimpleMovingAverage1(Indicator):
 ```
 尽管听起来不错，但backtrader不知道最小周期是多少，即使该参数被命名为“period”（名称可能会引起误解，并且某些指标会收到几种用法不同的“period”）
 
-在这种情况下，将已经为第一个数据柱调用了next方法，因为get方法无法返回所需的self.p.period，将会导致一系列的异常。
-
-在解决情况之前，必须考虑以下事项：
+在这种情况下，将已经为第一个数据柱调用了next方法，因为get方法无法返回所需的self.p.period，将会导致一系列的异常。在解决问题之前，必须考虑以下事项：
 * 传递给指标的交易数据可能已经存在最短时间
 样例SimpleMovingAverage可以在以下位置进行：
 * 常规交易数据：默认最小周期为1（只需等待进入系统的第一个柱）
@@ -2663,7 +2661,7 @@ class SimpleMovingAverage1(Indicator):
 addminperiod方法是让系统考虑该指标所需的额外周期条，以考虑可能存在的任何最小周期。
 如果所有计算都是使用已经将其周期需求传达给系统的对象完成的，则有时绝对不需要。
 
-使用直方图的快速MACD实现：
+快速实现带有直方图的MACD指标：
 ```python
 from backtrader.indicators import EMA
 
@@ -2678,4 +2676,62 @@ class MACD(Indicator):
         self.l.signal = EMA(self.l.macd, period=self.p.period_signal)
         self.l.histo = self.l.macd - self.l.signal
 ```
-> 未完待续
+完成，无需考虑最小周期问题：
+* EMA代表指数移动平均线（系统内置别名）
+* 指标“macd”和“signal”的中被命名为lines的对象已经分配了periods周期对象
+  * macd取自运算“me1-me2”的periods，而运算“me1-me2”又取me1和me2的periods的最大值（它们是不同周期的指数移动平均值）
+  * signal直接采用macd上的指数移动平均线的periods。该EMA还考虑了已经存在的macd周期和所需的样本量（period_signal）来进行自身计算
+  * histo取两个操作数“signal-macd”中的最大值。一旦两者都准备好，histo便有了具体的值
+
+### 一个完整的自定义指标
+让我们开发一个简单的自定义指标，该指标的移动平均值可以用参数修改：
+```python
+import backtrader as bt
+import backtrader.indicators as btind
+
+class OverUnderMovAv(bt.Indicator):
+    lines = ('overunder',)
+    params = dict(period=20, movav=btind.MovAv.Simple)
+
+    def __init__(self):
+        movav = self.p.movav(self.data, period=self.p.period)
+        self.l.overunder = bt.Cmp(movav, self.data)
+```
+完成，如果平均值高于数据，则指标的值为“1”，如果低于数据，则指标的值为“-1”。  
+如果数据是常规数据，则与收盘价相比会产生1和-1。  
+为了让指标可以优雅的绘图（更多内容可以参考绘图部分），我们可以添加以下几点：
+```python
+import backtrader as bt
+import backtrader.indicators as btind
+
+class OverUnderMovAv(bt.Indicator):
+    lines = ('overunder',)
+    params = dict(period=20, movav=bt.ind.MovAv.Simple)
+
+    plotinfo = dict(
+        # 1s和-1s的上方和下方添加额外的边距
+        plotymargin=0.15,
+
+        # 在1.0和-1.0处绘制参考水平线
+        plothlines=[1.0, -1.0],
+
+        # 将y的范围设置为1.0和-1.0之间
+        plotyticks=[1.0, -1.0])
+
+    # 用破折号样式绘制“overunder”线，ls代表线的样式，并直接传递给matplotlib
+    plotlines = dict(overunder=dict(ls='--'))
+
+    def _plotlabel(self):
+        # 此方法返回将显示的标签列表，指标名称跟在绘图点后面
+        # period 必须要有
+        plabels = [self.p.period]
+
+        # 如果不是默认值，则仅放置移动平均线
+        plabels += [self.p.movav] * self.p.notdefault('movav')
+
+        return plabels
+
+    def __init__(self):
+        movav = self.p.movav(self.data, period=self.p.period)
+        self.l.overunder = bt.Cmp(movav, self.data)
+```
