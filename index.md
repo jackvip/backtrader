@@ -2546,9 +2546,9 @@ backtrader下自定义指标非常容易。
 * 从指标（直接或从已经存在的子类）派生的类；
 * 定义将需要保存或使用的线对象；
 * 指标必须至少有1条线，如果继承了一个指标，则线对象已经被定义过了；
-*（可选）定义可以更改行为的参数；
-*（可选）提供/定制一些元素，以实现对指标的合理绘制；
-* 在\_\_init\_\_中提供一个完整定义的操作，并绑定（分配）到指标的线，或者提供next 和（可选） once 方法使用；  
+* （可选）定义可以更改行为的参数；
+* （可选）提供/定制一些元素，以实现对指标的合理绘制；
+* 在\_\_init\_\_中提供一个完整定义的操作，并绑定（分配）到指标的线，或者提供next 和（可选）once方法使用；  
 如果在初始化期间使用逻辑/算术运算完全定义一个指标，并且结果分配给该线。    
 如果不是如此，至少必须提下一个指标，该指标必须为索引为0的线分配一个值，可以通过once方法来实现Runonce模式（批处理操作）的计算优化。
 
@@ -2591,8 +2591,9 @@ bt.Max返回一个line对象，该对象会针对传递到指标的每个柱线�
 
 让我们回顾一下，self.lines.dummyline是长符号，可以将其缩短为：
 * self.l.dummyline 
+
 甚至
-* self.dummyline
+* self.dummyline  
 
 后者只有在代码未使用member属性才有能使用。
 第三个也是最后一个版本提供了一种额外的once方法来优化计算：
@@ -2735,3 +2736,118 @@ class OverUnderMovAv(bt.Indicator):
         movav = self.p.movav(self.data, period=self.p.period)
         self.l.overunder = bt.Cmp(movav, self.data)
 ```
+未完待续...
+
+# 分析器
+## 分析器
+无论是回测还是交易，能够分析交易系统的性能是非常重要的。因为不仅了解获得利润，而且还要了解风险。如果风险太大我们就要是否值得为这样的资产付出努力。参考资产（或无风险资产）。  
+  
+这就是Analyzer对象家族的用武之地：提供对发生的事件甚至实际发生的事件的分析。  
+### 分析器的性质
+该接口是按照Lines对象的接口建模的，特征有点像next方法，但有一个主要区别：
+* Analyzer不持有Lines对象  
+这意味着它们在内存方面开销不大，因为即使在分析了数千个价格柱之后，它们只需将单个结果保存在内存中。
+
+### 在生态系统中的位置
+通过cerebro实例将Analyzer对象（与策略，观察者和数据方式雷同）添加到系统中：
+* addanalyzer(ancls, *args, **kwargs)
+
+当在cerebro.run中运行时，系统中存在的每种策略都会发生以下情况：
+* 在cerebro中运行时，ancls会用* args和** kwargs进行实例化。
+* ancls实例将添加给该策略
+
+这意味着：
+* 如果回测运行包含例如3个策略，则将创建3个ancls实例，并将每个实例附加到不同的策略上。  
+底线：analyzer分析的是单个策略的性能，而不是整个系统的性能。
+
+#### 附加位置
+某些分析器对象实际上可能会使用其他分析器来完成其工作。 例如：SharpeRatio使用TimeReturn的输出进行计算。  
+这些子分析器或从属分析器也将被插入到创建它们的策略中，但是它们对于用户是完全不可见的。  
+  
+### 属性
+为了执行预期的工作，Analyzer对象提供了一些默认属性，这些属性会自动传递并在实例中进行设置，以便于使用：
+* self.strategy：策略子类的访问引用，策略可以访问的分析器的任何内容也可以被分析器访问。
+* self.datas[x]：该策略中存在的交易数据，尽管可以在策略中进行访问，但是该快捷方式访问可以更加舒适。
+* self.data：self.datas[0]的快捷方式，带来更多舒适感。
+* self.dataX：不同self.datas[x]的快捷访问方式。
+
+可以使用其他一些别名，尽管它们可能有点过头了：
+* `self.dataX_Y`，指向：`self.datas[X].lines[Y]`
+
+如果该行具有名称，则以下内容也可用：
+* `self.dataX_Name` 解析为 `self.datas[X].Name` 返回按名称而不是按索引的line
+
+对于第一个数据，没有初始X的情况下，最后的快捷方式可用的。例如：
+* `self.data_2` 指的是 `self.datas[0].lines[2]`
+* `self.data_close` 指的是 `self.datas[0] .close`
+
+#### 返回分析
+Analyzer基类创建一个self.rets（类型为collections.OrderedDict）成员属性以返回分析结果。这是在create_analysis方法中完成的，如果创建自定义Analyzer，则子类可以覆盖该方法。
+
+### 操作方式
+尽管Analyzer对象不是“线”对象，因此不会在线上进行迭代，但它们被设计为遵循相同的操作模式。  
+* 在系统投入运行之前实例化（因此调用\_\_init\_\_）；  
+* 从start操作中发出开始信号；
+* prenext/nextstart/next将在指标所执行的策略最短周期之内被调用，  
+prenext和nextstart的默认行为是调用next，因为分析器可能从系统运行的第一刻开始就进行分析；
+* 通常可能会在Lines对象中调用len(self)来检查柱的实际数量，同样，在Analyzers中通过返回self.strategy来访问Lines对象的len()方法；
+* 订单和交易将通过notify_order和notify_trade收到与策略一样的通知；
+* 现金和数值通过notify_cashvalue方法通知；
+* 现金，数值，基金价值和基金份额也将通过notify_fund得到通知；
+* stop将被调用标志着操作结束。
+
+一旦完成正常的操作周期，Analyzers便可使用用于提取/输出信息的方法：
+* get_analysis：理想情况下（不强制执行）返回包含分析结果的类似dict的对象;
+* print使用标准的backtrader.WriterFile（除非overriden）来写入get_analysis的分析结果;
+* pprint（漂亮打印）使用Python pprint模块打印get_analysis的结果;
+
+最后：
+* get_analysis创建一个成员属性self.ret（类型为collections.OrderedDict），Analyzers用来保存分析结果。  
+Analyzer的子类可以重写此方法来更改默认行为。
+
+### Analyzer模式
+在backtrader平台中Analyzer对象的开发揭示了两种不同模式来产生成分析结果：
+* 在执行期间，通过notify_xxx和next方法收集信息，并在next中生成分析数据  
+例如，TradeAnalyzer仅使用notify_trade方法来生成统计信息。
+
+* 收集（或不收集）上述信息，在stop方法一次性生成分析数据  
+SQN（系统质量编号）在notify_trade期间收集交易信息，在stop方法中生成统计信息
+
+### 一个尽可能简单的例子：
+```python
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
+import datetime
+
+import backtrader as bt
+import backtrader.analyzers as btanalyzers
+import backtrader.feeds as btfeeds
+import backtrader.strategies as btstrats
+
+cerebro = bt.Cerebro()
+
+# data
+dataname = '../datas/sample/2005-2006-day-001.txt'
+data = btfeeds.BacktraderCSVData(dataname=dataname)
+
+cerebro.adddata(data)
+
+# strategy
+cerebro.addstrategy(btstrats.SMA_CrossOver)
+
+# Analyzer
+cerebro.addanalyzer(btanalyzers.SharpeRatio, _name='mysharpe')
+
+thestrats = cerebro.run()
+thestrat = thestrats[0]
+
+print('夏普比率:', thestrat.analyzers.mysharpe.get_analysis())
+```
+执行它（已将其存储在analyzer-test.py中）：、
+```shell
+$ ./analyzer-test.py
+Sharpe Ratio: {'sharperatio': 11.647332609673256}
+```
+这里没有绘图，因为SharpeRatio在计算结束时是单个值。  
+未完待续...
