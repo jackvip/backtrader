@@ -1442,7 +1442,7 @@ if __name__ == '__main__':
 > 所以第一笔下单已经不是2000年1月份了，而是2000年2月份末。
 
 图表如下:
-![backtrader第一个策略](https://www.backtrader.com/docu/quickstart/quickstart10.png)
+![backtrader第一个策略](http://stoi.jusiu.com/bt/quickstart10.png)
 
 ## 参数调优
 
@@ -2961,7 +2961,7 @@ Len,Datetime,Open,High,Low,Close,Volume,OpenInterest
 卖出 250 @%17.14
 卖出 250 @%37.01
 ```
-![](https://www.backtrader.com/docu/analyzers/pyfolio-integration/sample-run-no-pyfolio.png)
+![](http://stoi.jusiu.com/bt/sample-run-no-pyfolio.png)
 在2年的默认时间周期内，随机选择了3个数据和几个买入和卖出操作。
 
 ### 使用PyFolio
@@ -3156,19 +3156,19 @@ Backtest Months: 3
 ```
 [-0.012 -0.025]
 ```
-![](https://www.backtrader.com/docu/analyzers/pyfolio-integration/output_2_4.png)
-![](https://www.backtrader.com/docu/analyzers/pyfolio-integration/output_2_6.png)
-![](https://www.backtrader.com/docu/analyzers/pyfolio-integration/output_2_11.png)
+![](http://stoi.jusiu.com/bt/output_2_4.png)
+![](http://stoi.jusiu.com/bt/output_2_6.png)
+![](http://stoi.jusiu.com/bt/output_2_11.png)
 ```shell
 pyfolioplotting.py:1210: FutureWarning: .resample() is now a deferred operation
 use .resample(...).mean() instead of .resample(...)
   **kwargs)
   ```
-![](https://www.backtrader.com/docu/analyzers/pyfolio-integration/output_2_13.png)
+![](http://stoi.jusiu.com/bt/output_2_13.png)
 ```shell
 <matplotlib.figure.Figure at 0x23982b70>
 ```
-![](https://www.backtrader.com/docu/analyzers/pyfolio-integration/output_2_21.png)
+![](http://stoi.jusiu.com/bt/output_2_21.png)
 
 使用例子：
 ```shell
