@@ -2563,7 +2563,7 @@ class OverUnderMovAv(bt.Indicator):
 <li><p>收集（或不收集）上述信息，在stop方法一次性生成分析数据<br>SQN（系统质量编号）在notify_trade期间收集交易信息，在stop方法中生成统计信息</p>
 </li>
 </ul>
-<h3 id="-">一个尽可能简单的例子：</h3>
+<h3 id="-">一个尽可能简单的例子</h3>
 <pre><code class="lang-python">from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
@@ -2598,6 +2598,69 @@ print(&#39;夏普比率:&#39;, thestrat.analyzers.mysharpe.get_analysis())
 Sharpe Ratio: {&#39;sharperatio&#39;: 11.647332609673256}
 </code></pre>
 <p>这里没有绘图，因为SharpeRatio在计算结束时是单个值。<br>未完待续...</p>
+<h2 id="pyfolio-">PyFolio概述</h2>
+<blockquote>
+<p>注意<br>从（至少）2017年7月25日起，pyfolio API已更改，并且create_full_tear_sheet不再有Gross_lev作为命名参数。因此，集成示例不起作用。</p>
+</blockquote>
+<p>以下引用来自pyfolio主页(<a href="http://quantopian.github.io/pyfolio/">http://quantopian.github.io/pyfolio/</a>)</p>
+<blockquote>
+<p>pyfolio是一个Python库，用于投资组合的财务绩效和风险分析，由Quantopian公司开发。可以很好的配合Zipline框架，进行回测。</p>
+</blockquote>
+<p>现在，也可以与backtrader一起使用。需要支持库：</p>
+<ul>
+<li>pyfolio</li>
+<li>及其依赖库（pandas, seaborn等）</li>
+</ul>
+<blockquote>
+<p>注意<br>在与版本0.5.1集成期间，需要更新依赖库的最新软件包。例如将seaborn从先前安装的0.7.0-dev升级到0.7.1，这主要是因为缺少方法swarmplot造成的。</p>
+</blockquote>
+<h3 id="-">用法</h3>
+<ul>
+<li>添加PyFolio分析器到cerebro中<pre><code class="lang-python">cerebro.addanalyzer（bt.analyzers.PyFolio）
+</code></pre>
+</li>
+<li>运行并获得第一个策略的返回：<pre><code class="lang-python">strats = cerebro.run()
+strat0 = strats[0]
+</code></pre>
+</li>
+<li>使用您提供的名称或默认名称（pyfolio）检索分析器。例如：<pre><code class="lang-python">pyfolio = strats.analyzers.getbyname（&#39;pyfolio&#39;）
+</code></pre>
+</li>
+<li>使用analyzers的get_pf_items方法检索pyfolio以后需要用到的4个数据：<pre><code class="lang-python">returns, positions, transactions, gross_lev = pyfoliozer.get_pf_items()
+</code></pre>
+</li>
+<li>与pyfolio一起使用（这已经在backtrader系统之外）</li>
+</ul>
+<p>一些与backtrader没有直接关系的使用说明</p>
+<ul>
+<li>pyfolio自动绘图可在Jupyter Notebook外部使用，但在内部使用效果最佳。</li>
+<li>pyfolio数据表的输出似乎无法在Jupyter Notebook之外运行，只能在Notebook内部工作。</li>
+</ul>
+<p>如果希望使用pyfolio，最好还是在Jupyter Notebook中运行。</p>
+<h3 id="-">简单代码</h3>
+<pre><code class="lang-python">...
+cerebro.addanalyzer(bt.analyzers.PyFolio, _name=&#39;pyfolio&#39;)
+...
+results = cerebro.run()
+strat = results[0]
+pyfoliozer = strat.analyzers.getbyname(&#39;pyfolio&#39;)
+returns, positions, transactions, gross_lev = pyfoliozer.get_pf_items()
+...
+...
+# pyfolio showtime
+import pyfolio as pf
+pf.create_full_tear_sheet(
+    returns,
+    positions=positions,
+    transactions=transactions,
+    gross_lev=gross_lev,
+    live_start_date=&#39;2005-05-01&#39;,  # 指定日期
+    round_trips=True)
+
+# 当前节点的图表将展现
+</code></pre>
+<h4 id="-">相关内容</h4>
+<p>查看PyFolio analyzer的内部使用的相关参考内容。</p>
 
           	</article>
         </div>

@@ -2813,7 +2813,7 @@ Analyzer的子类可以重写此方法来更改默认行为。
 * 收集（或不收集）上述信息，在stop方法一次性生成分析数据  
 SQN（系统质量编号）在notify_trade期间收集交易信息，在stop方法中生成统计信息
 
-### 一个尽可能简单的例子：
+### 一个尽可能简单的例子
 ```python
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
@@ -2851,3 +2851,71 @@ Sharpe Ratio: {'sharperatio': 11.647332609673256}
 ```
 这里没有绘图，因为SharpeRatio在计算结束时是单个值。  
 未完待续...
+
+## PyFolio概述
+> 注意  
+从（至少）2017年7月25日起，pyfolio API已更改，并且create_full_tear_sheet不再有Gross_lev作为命名参数。因此，集成示例不起作用。
+
+以下引用来自pyfolio主页(http://quantopian.github.io/pyfolio/)
+> pyfolio是一个Python库，用于投资组合的财务绩效和风险分析，由Quantopian公司开发。可以很好的配合Zipline框架，进行回测。
+
+现在，也可以与backtrader一起使用。需要支持库：
+* pyfolio
+* 及其依赖库（pandas, seaborn等）
+
+> 注意  
+在与版本0.5.1集成期间，需要更新依赖库的最新软件包。例如将seaborn从先前安装的0.7.0-dev升级到0.7.1，这主要是因为缺少方法swarmplot造成的。
+
+### 用法
+* 添加PyFolio分析器到cerebro中
+```python
+cerebro.addanalyzer（bt.analyzers.PyFolio）
+```
+* 运行并获得第一个策略的返回：
+```python
+strats = cerebro.run()
+strat0 = strats[0]
+```
+* 使用您提供的名称或默认名称（pyfolio）检索分析器。例如：
+```python
+pyfolio = strats.analyzers.getbyname（'pyfolio'）
+```
+* 使用analyzers的get_pf_items方法检索pyfolio以后需要用到的4个数据：
+```python
+returns, positions, transactions, gross_lev = pyfoliozer.get_pf_items()
+```
+* 与pyfolio一起使用（这已经在backtrader系统之外）
+
+一些与backtrader没有直接关系的使用说明
+* pyfolio自动绘图可在Jupyter Notebook外部使用，但在内部使用效果最佳。
+* pyfolio数据表的输出似乎无法在Jupyter Notebook之外运行，只能在Notebook内部工作。
+
+如果希望使用pyfolio，最好还是在Jupyter Notebook中运行。
+
+### 简单代码
+```python 
+...
+cerebro.addanalyzer(bt.analyzers.PyFolio, _name='pyfolio')
+...
+results = cerebro.run()
+strat = results[0]
+pyfoliozer = strat.analyzers.getbyname('pyfolio')
+returns, positions, transactions, gross_lev = pyfoliozer.get_pf_items()
+...
+...
+# pyfolio showtime
+import pyfolio as pf
+pf.create_full_tear_sheet(
+    returns,
+    positions=positions,
+    transactions=transactions,
+    gross_lev=gross_lev,
+    live_start_date='2005-05-01',  # 指定日期
+    round_trips=True)
+
+# 当前节点的图表将展现
+```
+#### 相关内容
+查看PyFolio analyzer的内部使用的相关参考内容。
+
+
