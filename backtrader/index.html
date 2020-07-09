@@ -2661,6 +2661,268 @@ pf.create_full_tear_sheet(
 </code></pre>
 <h4 id="-">相关内容</h4>
 <p>查看PyFolio analyzer的内部使用的相关参考内容。</p>
+<h2 id="pyfolio-">Pyfolio集成</h2>
+<p><a href="https://github.com/mementum/backtrader/issues/108">Ticket #08</a>中提出了对投资组合工具pyfolio的集成。</p>
+<p>鉴于zipline和pyfolio之间的紧密集成，该教程的初学者认为这很难，但是其实pyfolio可以用于其他示例。</p>
+<p>一部分用例已经集成到backtrader中：</p>
+<ul>
+<li>Analyzer基础结构</li>
+<li>子Analyzer</li>
+<li>TimeReturn Analyzer</li>
+</ul>
+<p>只需一个主PyFolio Analyzer和3个简易的子Analyzer，加上一个pyfolio方法，以及它的依赖库pandas。<br>首先更新所有依赖项：</p>
+<ul>
+<li>更新pandas</li>
+<li>更新numpy</li>
+<li>更新scikit-lean</li>
+<li>更新seaborn</li>
+</ul>
+<p>在类Unix环境下，时间完全取决于C编译器。 在Windows下，甚至安装了特定的Microsoft编译器（在本例中为Python 2.7）可能会失败。 但是，一个知名站点收集了Windows的最新软件包。 如果需要，请访问它：
+<a href="http://www.lfd.uci.edu/~gohlke/pythonlibs/">http://www.lfd.uci.edu/~gohlke/pythonlibs/</a>  </p>
+<p>如果测试不通过，集成将无法完成，这就是为什么通常样例都选择最新的。</p>
+<h3 id="-pyfolio">不使用PyFolio</h3>
+<p>该示例使用random.randint决定何时买入/卖出，这只是一个简单能跑起来的例子：</p>
+<pre><code class="lang-shell">$ ./pyfoliotest.py --printout --no-pyfolio --plot
+</code></pre>
+<p>输出：</p>
+<pre><code class="lang-python">Len,Datetime,Open,High,Low,Close,Volume,OpenInterest
+0001,2005-01-03T23:59:59,38.36,38.90,37.65,38.18,25482800.00,0.00
+买入  1000 @%23.58
+0002,2005-01-04T23:59:59,38.45,38.54,36.46,36.58,26625300.00,0.00
+买入  1000 @%36.58
+卖出 500 @%22.47
+0003,2005-01-05T23:59:59,36.69,36.98,36.06,36.13,18469100.00,0.00
+...
+卖出 500 @%37.51
+0502,2006-12-28T23:59:59,25.62,25.72,25.30,25.36,11908400.00,0.00
+0503,2006-12-29T23:59:59,25.42,25.82,25.33,25.54,16297800.00,0.00
+卖出 250 @%17.14
+卖出 250 @%37.01
+</code></pre>
+<p><img src="https://www.backtrader.com/docu/analyzers/pyfolio-integration/sample-run-no-pyfolio.png" alt="">
+在2年的默认时间周期内，随机选择了3个数据和几个买入和卖出操作。</p>
+<h3 id="-pyfolio">使用PyFolio</h3>
+<p>当在Jupyter Notebook内运行（包括内联绘图）时，pyfolio效果很好。</p>
+<blockquote>
+<p>注意<br>runstrat作为参数与此处[]一起使用，则跳过传递的参数，使用默认参数运行。</p>
+</blockquote>
+<pre><code class="lang-shell">%matplotlib inline
+</code></pre>
+<pre><code class="lang-python">from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
+
+import argparse
+import datetime
+import random
+
+import backtrader as bt
+
+
+class St(bt.Strategy):
+    params = (
+        (&#39;printout&#39;, False),
+        (&#39;stake&#39;, 1000),
+    )
+
+    def __init__(self):
+        pass
+
+    def start(self):
+        if self.p.printout:
+            txtfields = list()
+            txtfields.append(&#39;Len&#39;)
+            txtfields.append(&#39;Datetime&#39;)
+            txtfields.append(&#39;Open&#39;)
+            txtfields.append(&#39;High&#39;)
+            txtfields.append(&#39;Low&#39;)
+            txtfields.append(&#39;Close&#39;)
+            txtfields.append(&#39;Volume&#39;)
+            txtfields.append(&#39;OpenInterest&#39;)
+            print(&#39;,&#39;.join(txtfields))
+
+    def next(self):
+        if self.p.printout:
+            # Print only 1st data ... is just a check that things are running
+            txtfields = list()
+            txtfields.append(&#39;%04d&#39; % len(self))
+            txtfields.append(self.data.datetime.datetime(0).isoformat())
+            txtfields.append(&#39;%.2f&#39; % self.data0.open[0])
+            txtfields.append(&#39;%.2f&#39; % self.data0.high[0])
+            txtfields.append(&#39;%.2f&#39; % self.data0.low[0])
+            txtfields.append(&#39;%.2f&#39; % self.data0.close[0])
+            txtfields.append(&#39;%.2f&#39; % self.data0.volume[0])
+            txtfields.append(&#39;%.2f&#39; % self.data0.openinterest[0])
+            print(&#39;,&#39;.join(txtfields))
+
+        # Data 0
+        for data in self.datas:
+            toss = random.randint(1, 10)
+            curpos = self.getposition(data)
+            if curpos.size:
+                if toss &gt; 5:
+                    size = curpos.size // 2
+                    self.sell(data=data, size=size)
+                    if self.p.printout:
+                        print(&#39;SELL {} @%{}&#39;.format(size, data.close[0]))
+
+            elif toss &lt; 5:
+                self.buy(data=data, size=self.p.stake)
+                if self.p.printout:
+                    print(&#39;BUY  {} @%{}&#39;.format(self.p.stake, data.close[0]))
+
+
+def runstrat(args=None):
+    args = parse_args(args)
+
+    cerebro = bt.Cerebro()
+    cerebro.broker.set_cash(args.cash)
+
+    dkwargs = dict()
+    if args.fromdate:
+        fromdate = datetime.datetime.strptime(args.fromdate, &#39;%Y-%m-%d&#39;)
+        dkwargs[&#39;fromdate&#39;] = fromdate
+
+    if args.todate:
+        todate = datetime.datetime.strptime(args.todate, &#39;%Y-%m-%d&#39;)
+        dkwargs[&#39;todate&#39;] = todate
+
+    data0 = bt.feeds.BacktraderCSVData(dataname=args.data0, **dkwargs)
+    cerebro.adddata(data0, name=&#39;Data0&#39;)
+
+    data1 = bt.feeds.BacktraderCSVData(dataname=args.data1, **dkwargs)
+    cerebro.adddata(data1, name=&#39;Data1&#39;)
+
+    data2 = bt.feeds.BacktraderCSVData(dataname=args.data2, **dkwargs)
+    cerebro.adddata(data2, name=&#39;Data2&#39;)
+
+    cerebro.addstrategy(St, printout=args.printout)
+    if not args.no_pyfolio:
+        cerebro.addanalyzer(bt.analyzers.PyFolio, _name=&#39;pyfolio&#39;)
+
+    results = cerebro.run()
+    if not args.no_pyfolio:
+        strat = results[0]
+        pyfoliozer = strat.analyzers.getbyname(&#39;pyfolio&#39;)
+
+        returns, positions, transactions, gross_lev = pyfoliozer.get_pf_items()
+        if args.printout:
+            print(&#39;-- RETURNS&#39;)
+            print(returns)
+            print(&#39;-- POSITIONS&#39;)
+            print(positions)
+            print(&#39;-- TRANSACTIONS&#39;)
+            print(transactions)
+            print(&#39;-- GROSS LEVERAGE&#39;)
+            print(gross_lev)
+
+        import pyfolio as pf
+        pf.create_full_tear_sheet(
+            returns,
+            positions=positions,
+            transactions=transactions,
+            gross_lev=gross_lev,
+            live_start_date=&#39;2005-05-01&#39;,
+            round_trips=True)
+
+    if args.plot:
+        cerebro.plot(style=args.plot_style)
+
+
+def parse_args(args=None):
+
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description=&#39;Sample for pivot point and cross plotting&#39;)
+
+    parser.add_argument(&#39;--data0&#39;, required=False,
+                        default=&#39;../../datas/yhoo-1996-2015.txt&#39;,
+                        help=&#39;Data to be read in&#39;)
+
+    parser.add_argument(&#39;--data1&#39;, required=False,
+                        default=&#39;../../datas/orcl-1995-2014.txt&#39;,
+                        help=&#39;Data to be read in&#39;)
+
+    parser.add_argument(&#39;--data2&#39;, required=False,
+                        default=&#39;../../datas/nvda-1999-2014.txt&#39;,
+                        help=&#39;Data to be read in&#39;)
+
+    parser.add_argument(&#39;--fromdate&#39;, required=False,
+                        default=&#39;2005-01-01&#39;,
+                        help=&#39;Starting date in YYYY-MM-DD format&#39;)
+
+    parser.add_argument(&#39;--todate&#39;, required=False,
+                        default=&#39;2006-12-31&#39;,
+                        help=&#39;Ending date in YYYY-MM-DD format&#39;)
+
+    parser.add_argument(&#39;--printout&#39;, required=False, action=&#39;store_true&#39;,
+                        help=(&#39;Print data lines&#39;))
+
+    parser.add_argument(&#39;--cash&#39;, required=False, action=&#39;store&#39;,
+                        type=float, default=50000,
+                        help=(&#39;Cash to start with&#39;))
+
+    parser.add_argument(&#39;--plot&#39;, required=False, action=&#39;store_true&#39;,
+                        help=(&#39;Plot the result&#39;))
+
+    parser.add_argument(&#39;--plot-style&#39;, required=False, action=&#39;store&#39;,
+                        default=&#39;bar&#39;, choices=[&#39;bar&#39;, &#39;candle&#39;, &#39;line&#39;],
+                        help=(&#39;Plot style&#39;))
+
+    parser.add_argument(&#39;--no-pyfolio&#39;, required=False, action=&#39;store_true&#39;,
+                        help=(&#39;Do not do pyfolio things&#39;))
+
+    import sys
+    aargs = args if args is not None else sys.argv[1:]
+    return parser.parse_args(aargs)
+</code></pre>
+<pre><code class="lang-shell">runstrat([])
+</code></pre>
+<pre><code>Entire data start date: 2005-01-03
+Entire data end date: 2006-12-29
+
+
+Out-of-Sample Months: 20
+Backtest Months: 3
+</code></pre><pre><code>[-0.012 -0.025]
+</code></pre><p><img src="https://www.backtrader.com/docu/analyzers/pyfolio-integration/output_2_4.png" alt="">
+<img src="https://www.backtrader.com/docu/analyzers/pyfolio-integration/output_2_6.png" alt="">
+<img src="https://www.backtrader.com/docu/analyzers/pyfolio-integration/output_2_11.png" alt=""></p>
+<pre><code class="lang-shell">pyfolioplotting.py:1210: FutureWarning: .resample() is now a deferred operation
+use .resample(...).mean() instead of .resample(...)
+  **kwargs)
+</code></pre>
+<p><img src="https://www.backtrader.com/docu/analyzers/pyfolio-integration/output_2_13.png" alt=""></p>
+<pre><code class="lang-shell">&lt;matplotlib.figure.Figure at 0x23982b70&gt;
+</code></pre>
+<p><img src="https://www.backtrader.com/docu/analyzers/pyfolio-integration/output_2_21.png" alt=""></p>
+<p>使用例子：</p>
+<pre><code class="lang-shell">$ ./pyfoliotest.py --help
+usage: pyfoliotest.py [-h] [--data0 DATA0] [--data1 DATA1] [--data2 DATA2]
+                      [--fromdate FROMDATE] [--todate TODATE] [--printout]
+                      [--cash CASH] [--plot] [--plot-style {bar,candle,line}]
+                      [--no-pyfolio]
+
+Sample for pivot point and cross plotting
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --data0 DATA0         Data to be read in (default:
+                        ../../datas/yhoo-1996-2015.txt)
+  --data1 DATA1         Data to be read in (default:
+                        ../../datas/orcl-1995-2014.txt)
+  --data2 DATA2         Data to be read in (default:
+                        ../../datas/nvda-1999-2014.txt)
+  --fromdate FROMDATE   Starting date in YYYY-MM-DD format (default:
+                        2005-01-01)
+  --todate TODATE       Ending date in YYYY-MM-DD format (default: 2006-12-31)
+  --printout            Print data lines (default: False)
+  --cash CASH           Cash to start with (default: 50000)
+  --plot                Plot the result (default: False)
+  --plot-style {bar,candle,line}
+                        Plot style (default: bar)
+  --no-pyfolio          Do not do pyfolio things (default: False)
+</code></pre>
 
           	</article>
         </div>
